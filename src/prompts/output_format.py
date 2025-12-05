@@ -1,12 +1,36 @@
-Required output: JSON object with keys:
-- name: string (startup name or "unknown")
-- summary: string (1-3 sentences)
-- market: {size_estimate: string, top_markets: [strings], competitors: [strings]}
-- product: {category: string, differentiation: string}
-- business_model: {revenue_streams: [strings], monetization_risks: [strings]}
-- team: {founders_count: int or "unknown", strengths: [strings], gaps: [strings]}
-- risks: [strings]
-- recommendation: {invest: yes/no/hold, rationale: string}
-- assumptions: [strings]
+OUTPUT_FORMAT_PROMPT = """
+OUTPUT INSTRUCTION (MANDATORY):
+Return ONLY a single valid JSON object (no surrounding code fences, no commentary).
+Follow this exact schema (types shown). If a value is not available, use "unknown" or empty list.
 
-Return ONLY valid JSON. No commentary outside JSON. If incomplete, set fields to "unknown" or empty arrays as appropriate.
+{
+  "name": "string",
+  "summary": "string (1-3 sentences)",
+  "market": {
+    "size_estimate": "string (qual or numeric like '>$100M' or 'unknown')",
+    "top_markets": ["string"],
+    "competitors": ["string"]
+  },
+  "product": {
+    "category": "string",
+    "differentiation": "string"
+  },
+  "business_model": {
+    "revenue_streams": ["string"],
+    "monetization_risks": ["string"]
+  },
+  "team": {
+    "founders_count": "int or 'unknown'",
+    "strengths": ["string"],
+    "gaps": ["string"]
+  },
+  "risks": ["string"],
+  "recommendation": {
+    "invest": "yes/no/hold",
+    "rationale": "string"
+  },
+  "assumptions": ["string"]
+}
+
+Important: return valid JSON that will parse into the above structure. No extra fields.
+"""
