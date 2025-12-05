@@ -1,13 +1,16 @@
+"""
+Output format prompt and schema instructions.
+Export: OUTPUT_FORMAT_PROMPT (string)
+"""
 OUTPUT_FORMAT_PROMPT = """
-OUTPUT INSTRUCTION (MANDATORY):
-Return ONLY a single valid JSON object (no surrounding code fences, no commentary).
-Follow this exact schema (types shown). If a value is not available, use "unknown" or empty list.
+OUTPUT INSTRUCTIONS (MANDATORY):
+Return ONLY a single valid JSON object (no surrounding code fences, no commentary). Follow this exact schema. If a value is not available, use "unknown" or an empty list.
 
 {
   "name": "string",
   "summary": "string (1-3 sentences)",
   "market": {
-    "size_estimate": "string (qual or numeric like '>$100M' or 'unknown')",
+    "size_estimate": "string (e.g., '> $100M' or 'unknown')",
     "top_markets": ["string"],
     "competitors": ["string"]
   },
@@ -32,5 +35,5 @@ Follow this exact schema (types shown). If a value is not available, use "unknow
   "assumptions": ["string"]
 }
 
-Important: return valid JSON that will parse into the above structure. No extra fields.
+STRICT: No extra fields. No surrounding text. The JSON must parse. If partial, include filled fields and set unknowns explicitly.
 """

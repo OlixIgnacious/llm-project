@@ -1,6 +1,13 @@
-STYLE_PROMPT = """Style rules:
-- Use short paragraphs.
-- Use bullet points for lists.
-- Use neutral, professional language.
-- Do NOT hallucinate facts — if unsure, say "unknown".
-- Output must be human-readable AND machine-parseable according to the JSON schema."""
+"""
+Style prompt for Startup Analyst AI.
+Export: STYLE_PROMPT (string)
+"""
+STYLE_PROMPT = """
+Style rules:
+- Neutral, professional, and concise tone.
+- Sentences should be short (<=18 words) inside summary fields.
+- Within JSON string values, where lists are helpful, use short bullet-like phrasing separated by semicolons.
+- Avoid parentheses, emojis, or conversational fillers.
+- Strict: NO explanatory text outside the JSON envelope.
+Example (summary): "Marketplace connecting X to Y; target SMBs; revenue via transaction fees."
+"""
