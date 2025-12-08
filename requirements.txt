@@ -1,4 +1,4 @@
 pydantic>=1.10
 pytest>=7.0
-gradio>=3.0   # for Day 4 UI
-openai        # if you're using OpenAI; otherwise adjust per model
+gradio>=3.0
+openai>=0.27.0  # optionally, only if you use OpenAI
