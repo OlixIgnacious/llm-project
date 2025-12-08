@@ -1,6 +1,7 @@
+# src/chain.py
 import json
 import time
-from typing import Tuple, Any, Dict, Optional
+from typing import Tuple, Any, Optional
 
 from .prompts.role import ROLE_PROMPT
 from .prompts.behavior import BEHAVIOR_PROMPT
@@ -8,8 +9,8 @@ from .prompts.style import STYLE_PROMPT
 from .prompts.output_format import OUTPUT_FORMAT_PROMPT
 
 from .utils import validate_output
-from .models import LLMClient  # abstract client you should implement / wire
-from .memory import ShortTermMemory  # simple session memory (last N turns)
+from .models import LLMClient
+from .memory import ShortTermMemory
 
 # Config
 MAX_RETRIES = 2
@@ -25,9 +26,6 @@ class DeterministicChain:
         self.max_retries = max_retries
 
     def _build_system_prompt(self) -> str:
-        """
-        Assemble the role, behavior, style, and output-format prompts in a deterministic order.
-        """
         parts = [
             "SYSTEM: Begin system instructions.",
             ROLE_PROMPT.strip(),
@@ -38,64 +36,54 @@ class DeterministicChain:
         ]
         return "\n\n".join(parts)
 
-    def _build_user_prompt(self, user_input: str) -> str:
-        """
-        Build the user + memory context prompt to send to the LLM.
-        Memory should be short and recent (handled by ShortTermMemory).
-        """
-        mem_entries = self.memory.get_recent()
+    def _build_user_prompt(self, user_input: str, session_id: Optional[str] = None) -> str:
         mem_text = ""
-        if mem_entries:
-            # format memory as short bullet list
-            mem_text = "RECENT_CONVERSATION:\n" + "\n".join(f"- {m}" for m in mem_entries) + "\n\n"
+        if session_id:
+            mem_entries = self.memory.get_recent(session_id)
+            if mem_entries:
+                mem_text = "RECENT_CONVERSATION:\n" + "\n".join(f"- {m}" for m in mem_entries) + "\n\n"
 
-        user_block = f"USER_INPUT:\n{user_input}\n\nINSTRUCTIONS:\nReturn only the JSON following the schema in the system instructions."
+        user_block = (
+            f"USER_INPUT:\n{user_input}\n\n"
+            "INSTRUCTIONS:\nReturn only the JSON following the schema in the system instructions."
+        )
         return mem_text + user_block
 
     def run(self, user_input: str, session_id: Optional[str] = None) -> Tuple[bool, Any]:
-        """
-        Execute the chain: assemble prompts, call the LLM, validate output, retry if necessary.
-        Returns (True, parsed_model) on success, or (False, error_info) on failure.
-        """
         system_prompt = self._build_system_prompt()
-        user_prompt = self._build_user_prompt(user_input)
+        user_prompt = self._build_user_prompt(user_input, session_id)
 
-        # Prepare the complete payload for the LLM client
-        prompt_payload = {
-            "system": system_prompt,
-            "user": user_prompt
-        }
-
-        # Call LLM with retries
         attempt = 0
         last_raw_output = None
+
         while attempt <= self.max_retries:
             attempt += 1
             try:
-                # deterministic settings
                 raw = self.llm.generate(
                     system=system_prompt,
                     user=user_prompt,
                     temperature=TEMPERATURE
                 )
             except Exception as e:
-                # LLM call failed; if unrecoverable, break and return error
+                last_raw_output = f"LLM generation error: {str(e)}"
+                # transient LLM error: backoff and retry (up to max_retries)
+                if attempt <= self.max_retries:
+                    time.sleep(0.5 * attempt)
+                    continue
                 return False, {"error": "llm_call_failed", "detail": str(e), "attempt": attempt}
 
             last_raw_output = raw
 
-            # Try to parse raw output as JSON
+            # Try parse JSON
             try:
                 parsed = json.loads(raw)
             except Exception as e:
-                # If not JSON, prepare a stricter instruction and retry
                 if attempt <= self.max_retries:
                     user_prompt = (
                         "Return STRICT JSON matching the schema from system instructions. "
                         "Do not include any explanation or commentary—only the JSON object.\n\n"
                         + user_prompt
                     )
-                    # small backoff to avoid rate limits
                     time.sleep(0.2 * attempt)
                     continue
                 else:
@@ -104,16 +92,14 @@ class DeterministicChain:
             # Validate parsed JSON against pydantic schema
             ok, model_or_err = validate_output(parsed)
             if ok:
-                # success — update memory and return
-                # store a short summary in memory
-                summary = parsed.get("summary", "") if isinstance(parsed, dict) else ""
+                # success — update memory and return parsed model
+                summary = parsed.get("summary", "") if isinstance(parsed.get("summary", ""), str) else ""
                 if session_id:
-                    # memory key could be session-specific inside ShortTermMemory impl
                     self.memory.add(session_id, f"USER: {user_input}")
                     self.memory.add(session_id, f"ASSISTANT_SUMMARY: {summary}")
                 return True, model_or_err
             else:
-                # validation failed; on retry, ask LLM to return STRICT JSON
+                # validation failed; retry with stricter instruction
                 if attempt <= self.max_retries:
                     user_prompt = (
                         "Validation failed. Return STRICT JSON matching the schema exactly. "
@@ -125,5 +111,4 @@ class DeterministicChain:
                 else:
                     return False, {"error": "validation_failed", "validation": str(model_or_err), "raw": raw}
 
-        # Should not get here
-        return False, {"error": "unknown", "raw": last_raw_output}
+        return False, {"error": "exceeded_retries", "last_output": last_raw_output}
