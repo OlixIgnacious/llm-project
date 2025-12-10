@@ -25,8 +25,11 @@ class Recommendation(BaseModel):
 
     @field_validator('invest')
     def invest_must_be_valid(cls, v):
-        if v not in {'yes', 'no', 'hold'}:
-            raise ValueError("invest must be 'yes', 'no', or 'hold'")
+        allowed = {'yes', 'no', 'hold'}
+        if v not in allowed:
+            # instead of raising, coerce to a safe default
+            # you could also choose "no" instead of "hold"
+            return "hold"
         return v
     
 class StartupAssessment(BaseModel):

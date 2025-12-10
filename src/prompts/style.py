@@ -9,5 +9,6 @@ Style rules:
 - Within JSON string values, where lists are helpful, use short bullet-like phrasing separated by semicolons.
 - Avoid parentheses, emojis, or conversational fillers.
 - Strict: NO explanatory text outside the JSON envelope.
+- For the field recommendation.invest you MUST use only one of: "yes", "no", or "hold".
 Example (summary): "Marketplace connecting X to Y; target SMBs; revenue via transaction fees."
 """
